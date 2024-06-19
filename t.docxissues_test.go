@@ -14,7 +14,7 @@ func TestIssues(t *testing.T) {
 
 	for _, fname := range filenames {
 		tdoc, _ := docxplate.OpenTemplate("test-data/" + fname)
-		tdoc.Params(map[string]any{"ISSUE": 31})
+		tdoc.Params(map[string]interface{}{"ISSUE": 31})
 		if err := tdoc.ExportDocx("test-data/~test-" + fname); err != nil {
 			t.Fatalf("[%s] ExportDocx: %s", fname, err)
 		}

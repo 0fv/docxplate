@@ -11,7 +11,7 @@ import (
 type ParamList []*Param
 
 // Get method returns the value associated with the given name
-func (plist ParamList) Get(key string) any {
+func (plist ParamList) Get(key string) interface{} {
 	for _, p := range plist {
 		if p.Key == key {
 			return p.Value
@@ -25,11 +25,11 @@ func (p ParamList) Len() int {
 	return len(p)
 }
 
-// AnyToParams - load params from given any struct
+// interface{}ToParams - load params from given interface{} struct
 // 1) Convert struct to JSON
-// 2) Now convert JSON to map[string]any
+// 2) Now convert JSON to map[string]interface{}
 // 3) Clear params from nil
-func AnyToParams(v any) ParamList {
+func AnyToParams(v interface{}) ParamList {
 	// to JSON output
 	buf, _ := json.MarshalIndent(v, "", "\t")
 	return JSONToParams(buf)
@@ -38,7 +38,7 @@ func AnyToParams(v any) ParamList {
 // JSONToParams - load params from JSON
 func JSONToParams(buf []byte) ParamList {
 	// to map
-	m := map[string]any{}
+	m := map[string]interface{}{}
 	if err := json.Unmarshal(buf, &m); err != nil {
 		log.Printf("JSONToParams: %s", err)
 		return nil
@@ -52,17 +52,17 @@ func JSONToParams(buf []byte) ParamList {
 	return params
 }
 
-// walk map[string]any and collect valid params
-func mapToParams(m map[string]any) ParamList {
+// walk map[string]interface{} and collect valid params
+func mapToParams(m map[string]interface{}) ParamList {
 	var params ParamList
 	for mKey, mVal := range m {
 		p := NewParam(mKey)
 
 		switch v := mVal.(type) {
-		case map[string]any:
+		case map[string]interface{}:
 			p.Type = StructParam
 			p.Params = mapToParams(v)
-		case []any:
+		case []interface{}:
 			p.Type = SliceParam
 			p.Params = sliceToParams(v)
 		default:
@@ -81,7 +81,7 @@ func mapToParams(m map[string]any) ParamList {
 }
 
 // sliceToParams - slice of unknown - simple slice or complex
-func sliceToParams(arr []any) ParamList {
+func sliceToParams(arr []interface{}) ParamList {
 	var params ParamList
 
 	for i, val := range arr {
@@ -90,7 +90,7 @@ func sliceToParams(arr []any) ParamList {
 		p := NewParam(i + 1)
 
 		switch v := val.(type) {
-		case map[string]any:
+		case map[string]interface{}:
 			p.Type = StructParam
 			p.Params = mapToParams(v)
 		default:
@@ -108,7 +108,7 @@ func sliceToParams(arr []any) ParamList {
 }
 
 // StructToParams - walk struct and collect valid params
-func StructToParams(paramStruct any) ParamList {
+func StructToParams(paramStruct interface{}) ParamList {
 	var params ParamList
 	var keys reflect.Type
 	var vals reflect.Value

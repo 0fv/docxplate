@@ -5,7 +5,6 @@ import (
 	"encoding/xml"
 	"fmt"
 	"regexp"
-	"slices"
 	"strings"
 
 	"github.com/logrusorgru/aurora/v4"
@@ -132,7 +131,13 @@ func (xnode *xmlNode) isRowElement() bool {
 // Single type
 // w-t, w-r
 func (xnode *xmlNode) isSingle() bool {
-	return slices.Contains[[]string](NodeSingleTypes, xnode.XMLName.Local)
+	l := xnode.XMLName.Local
+	for _, v := range NodeSingleTypes {
+		if v == l {
+			return true
+		}
+	}
+	return false
 }
 
 // HaveParams - does node contents contains any param

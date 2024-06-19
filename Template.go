@@ -134,7 +134,7 @@ func OpenTemplateWithURL(docurl string) (tpl *Template, err error) {
 
 // Params  - replace template placeholders with params
 // "Hello {{ Name }}!"" --> "Hello World!""
-func (t *Template) Params(v any) {
+func (t *Template) Params(v interface{}) {
 	// t.params = collectParams("", v)
 	switch val := v.(type) {
 	case map[string]interface{}:

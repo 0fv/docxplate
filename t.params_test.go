@@ -31,7 +31,7 @@ func TestAnyToParamsMapStringAny(t *testing.T) {
 
 	type dummyTestType int
 
-	inParams := map[string]any{
+	inParams := map[string]interface{}{
 		"Name":     "Bob",
 		"Age":      uint(28),
 		"FavColor": dummyTestType(0xF00),
