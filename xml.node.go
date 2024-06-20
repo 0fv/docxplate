@@ -35,9 +35,7 @@ type xmlNode struct {
 
 func (xnode xmlNode) GetContentPrifix() (ret string) {
 	content := bytes.TrimSuffix(xnode.Content, []byte{'}', '}'})
-	splitList := strings.Split(string(content), ".")
-	ret = splitList[0]
-	splitList = strings.Split(ret, " ")
+	splitList := strings.Split(string(content), " ")
 	ret = splitList[0]
 	return
 }
@@ -211,7 +209,7 @@ func (xnode *xmlNode) cloneAndAppend() *xmlNode {
 	parent := xnode.parent
 
 	// new copy node
-	nnew := xnode.clone() // parent cleaned
+	nnew := xnode.clone(parent) //set parent 
 	nnew.isDeleted = false
 	nnew.isNew = true
 
@@ -226,21 +224,13 @@ func (xnode *xmlNode) cloneAndAppend() *xmlNode {
 	// Insert into specific index
 	parent.Nodes = append(parent.Nodes[:i], append([]*xmlNode{nnew}, parent.Nodes[i:]...)...)
 
-	// cloned element have incorrect parents - so fixing it here
-	nnew.parent.WalkTree(1, func(i int, new *xmlNode) {
-		for _, n := range nnew.Nodes {
-			if n != nil {
-				n.parent = nnew
-			}
-		}
-	})
 
 	return nnew
 }
 
 // Copy node as new and all childs as new too
 // no shared addresses as it would be by only copying it
-func (xnode *xmlNode) clone() *xmlNode {
+func (xnode *xmlNode) clone(parent *xmlNode) *xmlNode {
 	if xnode == nil {
 		return nil
 	}
@@ -250,9 +240,10 @@ func (xnode *xmlNode) clone() *xmlNode {
 	xnodeCopy.Nodes = nil
 	xnodeCopy.isDeleted = false
 	xnodeCopy.isNew = true
+	xnodeCopy.parent = parent
 
 	for _, n := range xnode.Nodes {
-		xnodeCopy.Nodes = append(xnodeCopy.Nodes, n.clone())
+		xnodeCopy.Nodes = append(xnodeCopy.Nodes, n.clone(xnodeCopy))
 	}
 
 	return xnodeCopy
