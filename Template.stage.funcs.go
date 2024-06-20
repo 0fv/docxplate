@@ -151,32 +151,30 @@ func (t *Template) expandPlaceholders(xnode *xmlNode) {
 
 // Replace single params by type
 func (t *Template) replaceSingleParams(xnode *xmlNode, triggerParamOnly bool) {
+	replaceAttr := []*xml.Attr{}
+	replaceContentNameMap := map[string][]*xmlNode{}
 	xnode.Walk(func(n *xmlNode) {
 		if n == nil || n.isDeleted {
 			return
 		}
-
-		// node params
-		t.params.Walk(func(p *Param) {
-			for i, attr := range n.Attrs {
-				if strings.Contains(attr.Value, "{{") {
-					n.Attrs[i].Value = string(p.replaceIn([]byte(attr.Value)))
-				}
+		for _, attr := range n.Attrs {
+			if strings.Contains(attr.Value, "{{") {
+				replaceAttr = append(replaceAttr, attr)
 			}
-		})
-
-		// node contentt
+		}
 		if bytes.Contains(n.Content, []byte("{{")) {
-			// Try to replace on node that contains possible placeholder
-			t.params.Walk(func(p *Param) {
-				// Only string and image param to replace
-				if p.Type != StringParam && p.Type != ImageParam {
-					return
-				}
-				// Prefix check
-				if !n.ContentHasPrefix(p.PlaceholderPrefix()) {
-					return
-				}
+			replaceContentNameMap[n.GetContentPrifix()] = append(replaceContentNameMap[n.GetContentPrifix()], n)
+		}
+	})
+	t.params.Walk(func(p *Param) {
+		for _, v := range replaceAttr {
+			v.Value = string(p.replaceIn([]byte(v.Value)))
+		}
+		if p.Type != StringParam && p.Type != ImageParam {
+			return
+		}
+		if relatedContentNodeList, ok := replaceContentNameMap[p.PlaceholderPrefix()]; ok {
+			for _, n := range relatedContentNodeList {
 				// Trigger: does placeholder have trigger
 				if p.Trigger = p.extractTriggerFrom(n.Content); p.Trigger != nil {
 					defer func() {
@@ -193,7 +191,7 @@ func (t *Template) replaceSingleParams(xnode *xmlNode, triggerParamOnly bool) {
 				case ImageParam:
 					t.replaceImageParams(n, p)
 				}
-			})
+			}
 		}
 	})
 }
@@ -215,7 +213,7 @@ func (t *Template) enhanceMarkup(xnode *xmlNode) {
 		}
 
 		// n.XMLName.Local = "w-item"
-		n.Attrs = append(n.Attrs, xml.Attr{
+		n.Attrs = append(n.Attrs, &xml.Attr{
 			Name:  xml.Name{Local: "list-id"},
 			Value: listID,
 		})

@@ -24,13 +24,22 @@ var NodeSectionTypes = []string{"w-tbl", "w-p"}
 
 type xmlNode struct {
 	XMLName xml.Name
-	Attrs   []xml.Attr `xml:",any,attr"`
-	Content []byte     `xml:",chardata"`
-	Nodes   []*xmlNode `xml:",any"`
+	Attrs   []*xml.Attr `xml:",any,attr"`
+	Content []byte      `xml:",chardata"`
+	Nodes   []*xmlNode  `xml:",any"`
 
 	parent    *xmlNode
 	isNew     bool // added recently
 	isDeleted bool
+}
+
+func (xnode xmlNode) GetContentPrifix() (ret string) {
+	content := bytes.TrimSuffix(xnode.Content, []byte{'}', '}'})
+	splitList := strings.Split(string(content), ".")
+	ret = splitList[0]
+	splitList = strings.Split(ret, " ")
+	ret = splitList[0]
+	return
 }
 
 func (xnode xmlNode) ContentHasPrefix(str string) bool {
@@ -218,7 +227,7 @@ func (xnode *xmlNode) cloneAndAppend() *xmlNode {
 	parent.Nodes = append(parent.Nodes[:i], append([]*xmlNode{nnew}, parent.Nodes[i:]...)...)
 
 	// cloned element have incorrect parents - so fixing it here
-	nnew.parent.Walk(func(nnew *xmlNode) {
+	nnew.parent.WalkTree(1, func(i int, new *xmlNode) {
 		for _, n := range nnew.Nodes {
 			if n != nil {
 				n.parent = nnew
