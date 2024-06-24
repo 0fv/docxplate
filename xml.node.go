@@ -174,6 +174,31 @@ func (xnode *xmlNode) AnyChildContains(buf []byte) bool {
 	return found
 }
 
+func (xnode xmlNode) GetContentPrefixList() (ret []string) {
+	var record strings.Builder
+	start := false
+	length := len(xnode.Content)
+	for i, v := range xnode.Content {
+		if i == 0 {
+			continue
+		}
+
+		if v == '{' && xnode.Content[i-1] == '{' {
+			start = true
+			continue
+		}
+		if start && (v == ' ' || (v == '}' && length-1 > i && xnode.Content[i+1] == '}')) {
+			ret = append(ret, record.String())
+			record.Reset()
+			start = false
+		}
+		if start {
+			record.WriteByte(v)
+		}
+	}
+	return
+}
+
 //// Show node parents as string chain
 //// p --> p1 --> p2
 // func (xnode *xmlNode) parentString(limit int) string {
@@ -209,7 +234,7 @@ func (xnode *xmlNode) cloneAndAppend() *xmlNode {
 	parent := xnode.parent
 
 	// new copy node
-	nnew := xnode.clone(parent) //set parent 
+	nnew := xnode.clone(parent) //set parent
 	nnew.isDeleted = false
 	nnew.isNew = true
 
@@ -223,7 +248,6 @@ func (xnode *xmlNode) cloneAndAppend() *xmlNode {
 
 	// Insert into specific index
 	parent.Nodes = append(parent.Nodes[:i], append([]*xmlNode{nnew}, parent.Nodes[i:]...)...)
-
 
 	return nnew
 }
@@ -260,6 +284,29 @@ func (xnode *xmlNode) delete() {
 	}
 	xnode.Nodes = nil
 	xnode.isDeleted = true
+}
+
+// fn return true ,end walk
+func (xnode *xmlNode) WalkWithEnd(fn func(*xmlNode) bool) {
+	// Using index to iterate nodes instead of for-range to process dynamic nodes
+	for i := 0; i < len(xnode.Nodes); i++ {
+		n := xnode.Nodes[i]
+
+		if n == nil {
+			continue
+		}
+
+		end := fn(n) // do your custom stuff
+
+		if end {
+			continue
+		}
+
+		if n.Nodes != nil {
+			// continue only if have deeper nodes
+			n.WalkWithEnd(fn)
+		}
+	}
 }
 
 // Find closest parent way up by node type

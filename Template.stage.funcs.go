@@ -44,31 +44,50 @@ func (t *Template) triggerMissingParams(xnode *xmlNode) {
 
 // Expand complex placeholders
 func (t *Template) expandPlaceholders(xnode *xmlNode) {
+	type xmlNodeContent struct {
+		node     *xmlNode
+		contents []byte
+	}
+	prefixNodeMap := map[string][]xmlNodeContent{}
+	xnode.WalkWithEnd(func(nrow *xmlNode) bool {
+		if nrow.isNew {
+			return false
+		}
+		if !nrow.isRowElement() {
+			return false
+		}
+		contents := nrow.AllContents()
+		prefixList := t.GetContentPrefixList(contents)
+		for _, prefix := range prefixList {
+			prefixNodeMap[prefix] = append(prefixNodeMap[prefix], xmlNodeContent{
+				contents: contents,
+				node:     nrow,
+			})
+		}
+		return true
+	})
 	t.params.Walk(func(p *Param) {
 		if p.Type != SliceParam {
 			return
 		}
 
 		prefixes := []string{
-			p.PlaceholderPrefix(),
-			p.ToCompact(p.PlaceholderPrefix()),
+			p.AbsoluteKey,
+			p.ToCompact(p.AbsoluteKey),
 		}
-
+		if prefixes[0] == prefixes[1] {
+			prefixes = prefixes[:1]
+		}
 		var max int
 		for _, prefix := range prefixes {
-			xnode.Walk(func(nrow *xmlNode) {
-				if nrow.isNew {
-					return
-				}
-				if !nrow.isRowElement() {
-					return
-				}
-				if !nrow.AnyChildContains([]byte(prefix)) {
-					return
-				}
-
-				contents := nrow.AllContents()
-				rowParams := rowParams(contents)
+			nodeList, ok := prefixNodeMap[prefix]
+			if !ok {
+				continue
+			}
+			for i := range nodeList {
+				node := nodeList[i]
+				nrow := node.node
+				rowParams := rowParams(node.contents)
 				rowPlaceholders := make(map[string]*placeholder)
 				// Collect placeholder that for expansion
 				for _, rowParam := range rowParams {
@@ -138,7 +157,7 @@ func (t *Template) expandPlaceholders(xnode *xmlNode) {
 						}
 					}
 				}
-			})
+			}
 		}
 	})
 
@@ -152,7 +171,7 @@ func (t *Template) expandPlaceholders(xnode *xmlNode) {
 // Replace single params by type
 func (t *Template) replaceSingleParams(xnode *xmlNode, triggerParamOnly bool) {
 	replaceAttr := []*xml.Attr{}
-	replaceContentNameMap := map[string][]*xmlNode{}
+	xnodeList := []*xmlNode{}
 	xnode.Walk(func(n *xmlNode) {
 		if n == nil || n.isDeleted {
 			return
@@ -162,10 +181,9 @@ func (t *Template) replaceSingleParams(xnode *xmlNode, triggerParamOnly bool) {
 				replaceAttr = append(replaceAttr, attr)
 			}
 		}
-		if bytes.Contains(n.Content, []byte("{{")) {
-			replaceContentNameMap[n.GetContentPrifix()] = append(replaceContentNameMap[n.GetContentPrifix()], n)
-		}
+		xnodeList = append(xnodeList, n)
 	})
+	paramAbsoluteKeyMap := map[string]*Param{}
 	t.params.Walk(func(p *Param) {
 		for _, v := range replaceAttr {
 			v.Value = string(p.replaceIn([]byte(v.Value)))
@@ -173,27 +191,38 @@ func (t *Template) replaceSingleParams(xnode *xmlNode, triggerParamOnly bool) {
 		if p.Type != StringParam && p.Type != ImageParam {
 			return
 		}
-		if relatedContentNodeList, ok := replaceContentNameMap[p.PlaceholderPrefix()]; ok {
-			for _, n := range relatedContentNodeList {
-				// Trigger: does placeholder have trigger
-				if p.Trigger = p.extractTriggerFrom(n.Content); p.Trigger != nil {
-					defer func() {
-						p.RunTrigger(n)
-					}()
-				}
-				if triggerParamOnly {
-					return
-				}
-				// Repalce by type
-				switch p.Type {
-				case StringParam:
-					t.replaceTextParam(n, p)
-				case ImageParam:
-					t.replaceImageParams(n, p)
-				}
-			}
-		}
+		paramAbsoluteKeyMap[p.AbsoluteKey] = p
 	})
+	for i := range xnodeList {
+		n := xnodeList[i]
+		for _, key := range n.GetContentPrefixList() {
+			p, ok := paramAbsoluteKeyMap[key]
+			if !ok {
+				continue
+			}
+			t.replaceAndRunTrigger(p, n, triggerParamOnly)
+		}
+	}
+}
+
+func (t *Template) replaceAndRunTrigger(p *Param, n *xmlNode, triggerParamOnly bool) {
+	// Trigger: does placeholder have trigger
+	if p.Trigger = p.extractTriggerFrom(n.Content); p.Trigger != nil {
+		// if
+		defer func() {
+			p.RunTrigger(n)
+		}()
+	}
+	if triggerParamOnly {
+		return
+	}
+	// Repalce by type
+	switch p.Type {
+	case StringParam:
+		t.replaceTextParam(n, p)
+	case ImageParam:
+		t.replaceImageParams(n, p)
+	}
 }
 
 // Enhance some markup (removed when building XML in the end)

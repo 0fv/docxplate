@@ -317,3 +317,34 @@ func (t *Template) Plaintext() string {
 
 	return plaintext
 }
+
+func (t Template) GetContentPrefixList(content []byte) []string {
+	var ret []string
+	var record strings.Builder
+	start := false
+	length := len(content)
+	for i, v := range content {
+		if i == 0 {
+			continue
+		}
+
+		if v == '{' && content[i-1] == '{' {
+			start = true
+			continue
+		}
+		if start {
+			if v == ' ' || (v == '}' && length-1 > i && content[i+1] == '}') {
+				ret = append(ret, record.String())
+				record.Reset()
+				start = false
+			}
+			if v == '.' {
+				ret = append(ret, record.String())
+				record.Reset()
+				continue
+			}
+			record.WriteByte(v)
+		}
+	}
+	return ret
+}
