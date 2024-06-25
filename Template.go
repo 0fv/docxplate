@@ -301,9 +301,9 @@ func (t *Template) Plaintext() string {
 	for _, f := range t.modified {
 		xnode := t.bytesToXMLStruct(f)
 
-		xnode.Walk(func(n *xmlNode) {
+		xnode.WalkWithEnd(func(n *xmlNode) bool {
 			if n.Tag() != "w-p" {
-				return
+				return false
 			}
 
 			s := string(n.AllContents())
@@ -311,6 +311,7 @@ func (t *Template) Plaintext() string {
 			if s != "" {
 				plaintext += "\n"
 			}
+			return true
 		})
 
 	}

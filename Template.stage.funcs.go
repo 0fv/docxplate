@@ -173,12 +173,12 @@ func (t *Template) replaceSingleParams(xnode *xmlNode, triggerParamOnly bool) {
 	replaceAttr := []*xml.Attr{}
 	xnodeList := []*xmlNode{}
 	xnode.Walk(func(n *xmlNode) {
-		if n == nil || n.isDeleted {
+		if n == nil {
 			return
 		}
 		for _, attr := range n.Attrs {
 			if strings.Contains(attr.Value, "{{") {
-				replaceAttr = append(replaceAttr, attr)
+				replaceAttr = append(replaceAttr, &attr)
 			}
 		}
 		xnodeList = append(xnodeList, n)
@@ -208,7 +208,6 @@ func (t *Template) replaceSingleParams(xnode *xmlNode, triggerParamOnly bool) {
 func (t *Template) replaceAndRunTrigger(p *Param, n *xmlNode, triggerParamOnly bool) {
 	// Trigger: does placeholder have trigger
 	if p.Trigger = p.extractTriggerFrom(n.Content); p.Trigger != nil {
-		// if
 		defer func() {
 			p.RunTrigger(n)
 		}()
@@ -242,7 +241,7 @@ func (t *Template) enhanceMarkup(xnode *xmlNode) {
 		}
 
 		// n.XMLName.Local = "w-item"
-		n.Attrs = append(n.Attrs, &xml.Attr{
+		n.Attrs = append(n.Attrs, xml.Attr{
 			Name:  xml.Name{Local: "list-id"},
 			Value: listID,
 		})
@@ -319,7 +318,6 @@ func (t *Template) fixBrokenPlaceholders(xnode *xmlNode) {
 				// fmt.Printf("OK [%s] + [%s]\n", aurora.Green(brokenNode.AllContents()), aurora.Green(n.AllContents()))
 				brokenNode.Content = append(brokenNode.Content, n.AllContents()...)
 				// aurora.Magenta("[%s] %v -- %v -- %v -- %v", brokenNode.Content, brokenNode.Tag(), brokenNode.parent.Tag(), brokenNode.parent.parent.Tag(), brokenNode.parent.parent.parent.Tag())
-				n.Nodes = nil
 				n.delete()
 				return
 			}

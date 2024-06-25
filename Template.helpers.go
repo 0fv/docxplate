@@ -17,7 +17,7 @@ func (t *Template) bytesToXMLStruct(buf []byte) *xmlNode {
 	buf = bytes.ReplaceAll(buf, []byte("</v:"), []byte("</v-"))
 
 	xdocNode := &xmlNode{}
-	if err := xml.Unmarshal(buf, &xdocNode); err != nil {
+	if err := xml.Unmarshal(buf, xdocNode); err != nil {
 		log.Printf("fileToXMLStruct: %v", err)
 	}
 
@@ -29,10 +29,13 @@ func (t *Template) bytesToXMLStruct(buf []byte) *xmlNode {
 		if xnode.Tag() == "w-body" {
 			xnode.parent = xdocNode
 		}
-
-		for _, n := range xnode.Nodes {
-			n.parent = xnode
+		if xnode.subfirst != nil {
+			xnode.subfirst.iterate(func(node *xmlNode) bool {
+				node.parent = xnode
+				return false
+			})
 		}
+
 	})
 
 	// log.Printf("%s", structToXMLBytes(n))
@@ -71,13 +74,13 @@ func (t *Template) replaceImageParams(xnode *xmlNode, param *Param) {
 				parent:  xnode.parent,
 				isNew:   true,
 			}
-			xnode.parent.Nodes = append(xnode.parent.Nodes, contentNode)
+			xnode.add(contentNode)
 		}
 		// image node
 		if len(contentSlice)-i > 1 {
 			imgNode := t.bytesToXMLStruct([]byte(param.Value))
 			imgNode.parent = xnode.parent
-			xnode.parent.Nodes = append(xnode.parent.Nodes, imgNode)
+			xnode.add(imgNode)
 		}
 	}
 	// Empty the content before deleting to prevent reprocessing when params walk
