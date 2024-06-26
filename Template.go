@@ -300,10 +300,9 @@ func (t *Template) Plaintext() string {
 	// header and footer must be printed in plaintext
 	for _, f := range t.modified {
 		xnode := t.bytesToXMLStruct(f)
-
-		xnode.WalkWithEnd(func(n *xmlNode) bool {
+		xnode.Walk(func(n *xmlNode) {
 			if n.Tag() != "w-p" {
-				return false
+				return
 			}
 
 			s := string(n.AllContents())
@@ -311,7 +310,6 @@ func (t *Template) Plaintext() string {
 			if s != "" {
 				plaintext += "\n"
 			}
-			return true
 		})
 
 	}

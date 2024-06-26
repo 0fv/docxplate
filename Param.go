@@ -266,10 +266,8 @@ func (p *Param) RunTrigger(xnode *xmlNode) {
 
 	// Simple cases
 	if p.Trigger.Command == TriggerCommandRemove {
-		fmt.Println(string(n.parent.AllContents()))
 		// fmt.Printf("Trigger: [%s] [%s]\t Command=[%s]\n", aurora.Blue(p.AbsoluteKey), aurora.Magenta(p.Trigger.String()), aurora.BgMagenta(p.Trigger.Command))
 		n.delete()
-		fmt.Println(string(n.parent.AllContents()))
 		return
 	}
 

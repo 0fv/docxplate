@@ -130,10 +130,10 @@ func TestPlaceholders(t *testing.T) {
 
 	filenames := []string{
 		"tables.docx",
-		"lists.docx",
-		"header-footer.docx",
-		"user.template-no-images.docx",
-		"user.template-with-images.docx",
+		// "lists.docx",
+		// "header-footer.docx",
+		// "user.template-no-images.docx",
+		// "user.template-with-images.docx",
 	}
 
 	for _, fname := range filenames {

@@ -154,3 +154,37 @@ func (t Template) GetContentPrefixList(content []byte) []string {
 	}
 	return ret
 }
+
+// func (t Template) GetContentPrefixList(content []byte) []string {
+// 	var ret []string
+// 	var record strings.Builder
+// 	start := false
+// 	length := len(content)
+// 	for i := 1; i < length-1; i++ {
+
+// 		if content[i] == '{' && content[i-1] == '{' {
+// 			start = true
+// 			continue
+// 		}
+// 		if start {
+// 			if content[i] == ' ' || content[i] == '.' {
+// 				if record.Len() > 0 {
+// 					ret = append(ret, record.String())
+// 				}
+// 				record.Reset()
+// 				continue
+// 			}
+// 			if content[i] == '}' && length-1 > i && content[i+1] == '}' {
+// 				if record.Len() > 0 {
+// 					ret = append(ret, record.String())
+// 				}
+// 				record.Reset()
+// 				start = false
+// 				i++
+// 				continue
+// 			}
+// 			record.WriteByte(content[i])
+// 		}
+// 	}
+// 	return ret
+// }

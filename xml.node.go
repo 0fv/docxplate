@@ -177,10 +177,17 @@ func (xnode *xmlNode) XMLEncode(e *xml.Encoder) error {
 
 // Walk down all nodes and do custom stuff with given function
 func (xnode *xmlNode) Walk(fn func(*xmlNode)) {
+	if xnode.subfirst == nil {
+		return
+	}
+	xnode.subfirst.walk(fn)
+}
+
+func (xnode *xmlNode) walk(fn func(*xmlNode)) {
 	xnode.iterate(func(node *xmlNode) bool {
 		fn(node)
 		if node.subfirst != nil {
-			node.subfirst.Walk(fn)
+			node.subfirst.walk(fn)
 		}
 		return false
 	})
@@ -188,14 +195,16 @@ func (xnode *xmlNode) Walk(fn func(*xmlNode)) {
 
 // fn return true ,end walk
 func (xnode *xmlNode) WalkWithEnd(fn func(*xmlNode) bool) {
-	// Using index to iterate nodes instead of for-range to process dynamic nodes
+	if xnode.subfirst == nil {
+		return
+	}
+	xnode.subfirst.walkWithEnd(fn)
+}
+
+func (xnode *xmlNode) walkWithEnd(fn func(*xmlNode) bool) {
 	xnode.iterate(func(node *xmlNode) bool {
-		end := fn(node)
-		if end {
-			return end
-		}
-		if node.subfirst != nil {
-			node.subfirst.WalkWithEnd(fn)
+		if (!fn(node)) && node.subfirst != nil {
+			node.subfirst.walkWithEnd(fn)
 		}
 		return false
 	})
@@ -203,6 +212,13 @@ func (xnode *xmlNode) WalkWithEnd(fn func(*xmlNode) bool) {
 
 // Walk down all nodes and do custom stuff with given function
 func (xnode *xmlNode) WalkTree(depth int, fn func(int, *xmlNode)) {
+	if xnode.subfirst == nil {
+		return
+	}
+	xnode.subfirst.walkTree(depth, fn)
+}
+
+func (xnode *xmlNode) walkTree(depth int, fn func(int, *xmlNode)) {
 	xnode.iterate(func(node *xmlNode) bool {
 		fn(depth, xnode)
 		if node.subfirst != nil {
@@ -217,11 +233,12 @@ func (xnode *xmlNode) AllContents() []byte {
 	if xnode == nil {
 		return nil
 	}
-
 	buf := xnode.Content
+
 	xnode.Walk(func(n *xmlNode) {
 		buf = append(buf, n.Content...)
 	})
+
 	return buf
 }
 
@@ -331,6 +348,7 @@ func (xnode *xmlNode) cloneAndAppend() *xmlNode {
 
 	tmp := xnode.next
 	xnode.next = nnew
+	nnew.priv = xnode
 	nnew.next = tmp
 	if tmp != nil {
 		tmp.priv = nnew
@@ -365,6 +383,9 @@ func (xnode *xmlNode) clone(parent *xmlNode) *xmlNode {
 
 // Delete node
 func (xnode *xmlNode) delete() {
+	xnode.subLength = 0
+	xnode.subfirst = nil
+	xnode.sublast = nil
 	if xnode.parent != nil {
 		xnode.parent.subLength--
 		if xnode.parent.subfirst == xnode {

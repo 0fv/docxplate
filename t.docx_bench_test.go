@@ -66,3 +66,18 @@ func BenchmarkLists1000(b *testing.B) {
 		log.Fatal(err)
 	}
 }
+
+func BenchmarkLists5000(b *testing.B) {
+	var user = User{
+		Name: "Walter",
+	}
+	for i := 0; i < 5000; i++ {
+		user.Friends = append(user.Friends, &User{Name: "Bob", Age: 28})
+	}
+
+	tdoc, _ := docxplate.OpenTemplate("test-data/lists.docx")
+	tdoc.Params(user)
+	if err := tdoc.ExportDocx("test-data/~test-lists.docx"); err != nil {
+		log.Fatal(err)
+	}
+}
