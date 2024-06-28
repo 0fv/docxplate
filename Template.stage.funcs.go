@@ -130,7 +130,7 @@ func (t *Template) expandPlaceholders(xnode *xmlNode) {
 					}
 				}
 				// Expand placeholder exactly
-				nnews := make([]*xmlNode, max, max)
+				nnews := make([]*xmlNode, max)
 				for oldPlaceholder, newPlaceholder := range rowPlaceholders {
 					switch newPlaceholder.Type {
 					case inlinePlaceholder:
@@ -144,7 +144,7 @@ func (t *Template) expandPlaceholders(xnode *xmlNode) {
 						defer func() {
 							nrow.delete()
 						}()
-						for i, placeholder := range newPlaceholder.Placeholders {
+						for i := len(newPlaceholder.Placeholders) - 1; i >= 0; i-- {
 							if nnews[i] == nil {
 								nnews[i] = nrow.cloneAndAppend()
 							}
@@ -152,7 +152,7 @@ func (t *Template) expandPlaceholders(xnode *xmlNode) {
 								if !inSlice(n.XMLName.Local, []string{"w-t"}) || len(n.Content) == 0 {
 									return
 								}
-								n.Content = bytes.ReplaceAll(n.Content, []byte(oldPlaceholder), []byte(placeholder))
+								n.Content = bytes.ReplaceAll(n.Content, []byte(oldPlaceholder), []byte(newPlaceholder.Placeholders[i]))
 							})
 						}
 					}
@@ -170,31 +170,23 @@ func (t *Template) expandPlaceholders(xnode *xmlNode) {
 
 // Replace single params by type
 func (t *Template) replaceSingleParams(xnode *xmlNode, triggerParamOnly bool) {
-	replaceAttr := []*xml.Attr{}
-	xnodeList := []*xmlNode{}
-	xnode.Walk(func(n *xmlNode) {
-		if n == nil {
-			return
-		}
-		for _, attr := range n.Attrs {
-			if strings.Contains(attr.Value, "{{") {
-				replaceAttr = append(replaceAttr, &attr)
-			}
-		}
-		xnodeList = append(xnodeList, n)
-	})
 	paramAbsoluteKeyMap := map[string]*Param{}
 	t.params.Walk(func(p *Param) {
-		for _, v := range replaceAttr {
-			v.Value = string(p.replaceIn([]byte(v.Value)))
-		}
 		if p.Type != StringParam && p.Type != ImageParam {
 			return
 		}
 		paramAbsoluteKeyMap[p.AbsoluteKey] = p
 	})
-	for i := range xnodeList {
-		n := xnodeList[i]
+	xnode.Walk(func(n *xmlNode) {
+		for i := range n.Attrs {
+			for _, key := range t.GetAttrParam(n.Attrs[i].Value) {
+				p, ok := paramAbsoluteKeyMap[key]
+				if !ok {
+					continue
+				}
+				n.Attrs[i].Value = string(p.replaceIn([]byte(n.Attrs[i].Value)))
+			}
+		}
 		for _, key := range n.GetContentPrefixList() {
 			p, ok := paramAbsoluteKeyMap[key]
 			if !ok {
@@ -202,7 +194,7 @@ func (t *Template) replaceSingleParams(xnode *xmlNode, triggerParamOnly bool) {
 			}
 			t.replaceAndRunTrigger(p, n, triggerParamOnly)
 		}
-	}
+	})
 }
 
 func (t *Template) replaceAndRunTrigger(p *Param, n *xmlNode, triggerParamOnly bool) {
@@ -239,7 +231,6 @@ func (t *Template) enhanceMarkup(xnode *xmlNode) {
 		if !isListItem {
 			return
 		}
-
 		// n.XMLName.Local = "w-item"
 		n.Attrs = append(n.Attrs, xml.Attr{
 			Name:  xml.Name{Local: "list-id"},

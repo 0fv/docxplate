@@ -250,7 +250,7 @@ func (p *Param) RunTrigger(xnode *xmlNode) {
 	isListRemove = isListRemove || (isListItem && p.Trigger.Scope == TriggerScopeSection) // :section
 	if isListRemove && isListItem {
 		// find all list items as this
-		n.parent.iterate(func(wpNode *xmlNode) bool {
+		n.parent.subfirst.iterate(func(wpNode *xmlNode) bool {
 			isitem, listid := wpNode.IsListItem()
 			if !isitem || listid != listID {
 				// aurora.Red("--- %s [%s]", wpNode, wpNode.AllContents())

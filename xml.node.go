@@ -63,6 +63,9 @@ func (xnode *xmlNode) add(n *xmlNode) {
 }
 
 func (xnode *xmlNode) iterate(fn func(node *xmlNode) bool) {
+	if xnode == nil {
+		return
+	}
 	n := xnode
 	if fn(n) {
 		return
