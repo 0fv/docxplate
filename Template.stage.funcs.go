@@ -44,11 +44,10 @@ func (t *Template) triggerMissingParams(xnode *xmlNode) {
 
 // Expand complex placeholders
 func (t *Template) expandPlaceholders(xnode *xmlNode) {
-	type xmlNodeContent struct {
-		node     *xmlNode
-		contents []byte
+	paramNameMap := map[string]*Param{}
+	for _, p := range t.params.GetMainSliceParam() {
+		paramNameMap[p.CompactKey] = p
 	}
-	prefixNodeMap := map[string][]xmlNodeContent{}
 	xnode.WalkWithEnd(func(nrow *xmlNode) bool {
 		if nrow.isNew {
 			return false
@@ -56,116 +55,175 @@ func (t *Template) expandPlaceholders(xnode *xmlNode) {
 		if !nrow.isRowElement() {
 			return false
 		}
+		var max int
 		contents := nrow.AllContents()
-		prefixList := t.GetContentPrefixList(contents)
-		for _, prefix := range prefixList {
-			prefixNodeMap[prefix] = append(prefixNodeMap[prefix], xmlNodeContent{
-				contents: contents,
-				node:     nrow,
-			})
+		rowParams := rowParams(contents)
+		rowPlaceholders := make(map[string]*placeholder)
+		for _, rowParam := range rowParams {
+			var placeholderType placeholderType
+			if len(rowParam.Separator) > 0 {
+				placeholderType = inlinePlaceholder
+			} else {
+				placeholderType = rowPlaceholder
+			}
+
+			var trigger string
+			if rowParam.Trigger != nil {
+				trigger = " " + rowParam.Trigger.String()
+			}
+
+			keySlice := strings.Split(rowParam.AbsoluteKey, ".")
+			var paramData []*Param
+			t.params.FindAllByCompactKey(1, keySlice, &paramData)
+			if len(paramData) == 0 {
+				return true
+			}
+			placeholders := make([]string, len(paramData))
+			for index, param := range paramData {
+				placeholders[index] = "{{" + param.AbsoluteKey + trigger + "}}"
+			}
+			rowPlaceholders[rowParam.RowPlaceholder] = &placeholder{
+				Type:         placeholderType,
+				Placeholders: placeholders,
+				Separator:    strings.TrimLeft(rowParam.Separator, " "),
+			}
+			if max < len(placeholders) {
+				max = len(placeholders)
+			}
+		}
+		nnews := make([]*xmlNode, max)
+		for oldPlaceholder, newPlaceholder := range rowPlaceholders {
+			switch newPlaceholder.Type {
+			case inlinePlaceholder:
+				nrow.Walk(func(n *xmlNode) {
+					if !inSlice(n.XMLName.Local, []string{"w-t"}) || len(n.Content) == 0 {
+						return
+					}
+					n.Content = bytes.ReplaceAll(n.Content, []byte(oldPlaceholder), []byte(strings.Join(newPlaceholder.Placeholders, newPlaceholder.Separator)))
+				})
+			case rowPlaceholder:
+				defer func() {
+					nrow.delete()
+				}()
+				length := len(newPlaceholder.Placeholders)
+				for i := length - 1; i >= 0; i-- {
+					arrIndex := (length - 1) - i
+					if nnews[arrIndex] == nil {
+						nnews[arrIndex] = nrow.cloneAndAppend()
+					}
+					nnews[arrIndex].Walk(func(n *xmlNode) {
+						if !inSlice(n.XMLName.Local, []string{"w-t"}) || len(n.Content) == 0 {
+							return
+						}
+						n.Content = bytes.ReplaceAll(n.Content, []byte(oldPlaceholder), []byte(newPlaceholder.Placeholders[i]))
+					})
+				}
+			}
 		}
 		return true
 	})
-	t.params.Walk(func(p *Param) {
-		if p.Type != SliceParam {
-			return
-		}
+	// leaf := t.params.GetMainSliceParam()
+	// for _, p := range leaf {
+	// 	if !p.ParentIsSlice() {
+	// 		continue
+	// 	}
+	// 	fmt.Println(p.AbsoluteKey, p.ToCompact(p.AbsoluteKey))
+	// 	prefixes := []string{
+	// 		p.AbsoluteKey,
+	// 		p.ToCompact(p.AbsoluteKey),
+	// 	}
+	// 	if prefixes[0] == prefixes[1] {
+	// 		prefixes = prefixes[:1]
+	// 	}
+	// 	p = p.parent
+	// 	var max int
+	// 	for _, prefix := range prefixes {
+	// 		nodeList = []interface{}{}
+	// 		if !ok {
+	// 			continue
+	// 		}
+	// 		for i := range nodeList {
+	// 			node := nodeList[i]
+	// 			nrow := node.node
+	// 			rowParams := rowParams(node.contents)
+	// 			rowPlaceholders := make(map[string]*placeholder)
+	// 			// Collect placeholder that for expansion
+	// 			for _, rowParam := range rowParams {
+	// 				var placeholderType placeholderType
+	// 				if len(rowParam.Separator) > 0 {
+	// 					placeholderType = inlinePlaceholder
+	// 				} else {
+	// 					placeholderType = rowPlaceholder
+	// 				}
 
-		prefixes := []string{
-			p.AbsoluteKey,
-			p.ToCompact(p.AbsoluteKey),
-		}
-		if prefixes[0] == prefixes[1] {
-			prefixes = prefixes[:1]
-		}
-		var max int
-		for _, prefix := range prefixes {
-			nodeList, ok := prefixNodeMap[prefix]
-			if !ok {
-				continue
-			}
-			for i := range nodeList {
-				node := nodeList[i]
-				nrow := node.node
-				rowParams := rowParams(node.contents)
-				rowPlaceholders := make(map[string]*placeholder)
-				// Collect placeholder that for expansion
-				for _, rowParam := range rowParams {
-					var placeholderType placeholderType
-					if len(rowParam.Separator) > 0 {
-						placeholderType = inlinePlaceholder
-					} else {
-						placeholderType = rowPlaceholder
-					}
+	// 				var trigger string
+	// 				if rowParam.Trigger != nil {
+	// 					trigger = " " + rowParam.Trigger.String()
+	// 				}
 
-					var trigger string
-					if rowParam.Trigger != nil {
-						trigger = " " + rowParam.Trigger.String()
-					}
+	// 				var isMatch bool
+	// 				var index = -1
+	// 				currentLevel := p.Level
+	// 				placeholders := make([]string, 0, len(p.Params))
+	// 				p.WalkFunc(func(p *Param) {
+	// 					if p.Level == currentLevel+1 {
+	// 						index++
+	// 					}
+	// 					if rowParam.AbsoluteKey == p.CompactKey {
+	// 						isMatch = true
+	// 						placeholders = append(placeholders, "{{"+p.AbsoluteKey+trigger+"}}")
+	// 					}
+	// 				})
 
-					var isMatch bool
-					var index = -1
-					currentLevel := p.Level
-					placeholders := make([]string, 0, len(p.Params))
-					p.WalkFunc(func(p *Param) {
-						if p.Level == currentLevel+1 {
-							index++
-						}
-						if rowParam.AbsoluteKey == p.CompactKey {
-							isMatch = true
-							placeholders = append(placeholders, "{{"+p.AbsoluteKey+trigger+"}}")
-						}
-					})
+	// 				if isMatch {
+	// 					rowPlaceholders[rowParam.RowPlaceholder] = &placeholder{
+	// 						Type:         placeholderType,
+	// 						Placeholders: placeholders,
+	// 						Separator:    strings.TrimLeft(rowParam.Separator, " "),
+	// 					}
 
-					if isMatch {
-						rowPlaceholders[rowParam.RowPlaceholder] = &placeholder{
-							Type:         placeholderType,
-							Placeholders: placeholders,
-							Separator:    strings.TrimLeft(rowParam.Separator, " "),
-						}
+	// 					if max < len(placeholders) {
+	// 						max = len(placeholders)
+	// 					}
+	// 				}
+	// 			}
+	// 			// Expand placeholder exactly
+	// 			nnews := make([]*xmlNode, max)
+	// 			for oldPlaceholder, newPlaceholder := range rowPlaceholders {
+	// 				switch newPlaceholder.Type {
+	// 				case inlinePlaceholder:
+	// 					nrow.Walk(func(n *xmlNode) {
+	// 						if !inSlice(n.XMLName.Local, []string{"w-t"}) || len(n.Content) == 0 {
+	// 							return
+	// 						}
+	// 						n.Content = bytes.ReplaceAll(n.Content, []byte(oldPlaceholder), []byte(strings.Join(newPlaceholder.Placeholders, newPlaceholder.Separator)))
+	// 					})
+	// 				case rowPlaceholder:
+	// 					defer func() {
+	// 						nrow.delete()
+	// 					}()
+	// 					for i := len(newPlaceholder.Placeholders) - 1; i >= 0; i-- {
+	// 						if nnews[i] == nil {
+	// 							nnews[i] = nrow.cloneAndAppend()
+	// 						}
+	// 						nnews[i].Walk(func(n *xmlNode) {
+	// 							if !inSlice(n.XMLName.Local, []string{"w-t"}) || len(n.Content) == 0 {
+	// 								return
+	// 							}
+	// 							n.Content = bytes.ReplaceAll(n.Content, []byte(oldPlaceholder), []byte(newPlaceholder.Placeholders[i]))
+	// 						})
+	// 					}
+	// 				}
+	// 			}
+	// 		}
+	// 	}
+	// }
 
-						if max < len(placeholders) {
-							max = len(placeholders)
-						}
-					}
-				}
-				// Expand placeholder exactly
-				nnews := make([]*xmlNode, max)
-				for oldPlaceholder, newPlaceholder := range rowPlaceholders {
-					switch newPlaceholder.Type {
-					case inlinePlaceholder:
-						nrow.Walk(func(n *xmlNode) {
-							if !inSlice(n.XMLName.Local, []string{"w-t"}) || len(n.Content) == 0 {
-								return
-							}
-							n.Content = bytes.ReplaceAll(n.Content, []byte(oldPlaceholder), []byte(strings.Join(newPlaceholder.Placeholders, newPlaceholder.Separator)))
-						})
-					case rowPlaceholder:
-						defer func() {
-							nrow.delete()
-						}()
-						for i := len(newPlaceholder.Placeholders) - 1; i >= 0; i-- {
-							if nnews[i] == nil {
-								nnews[i] = nrow.cloneAndAppend()
-							}
-							nnews[i].Walk(func(n *xmlNode) {
-								if !inSlice(n.XMLName.Local, []string{"w-t"}) || len(n.Content) == 0 {
-									return
-								}
-								n.Content = bytes.ReplaceAll(n.Content, []byte(oldPlaceholder), []byte(newPlaceholder.Placeholders[i]))
-							})
-						}
-					}
-				}
-			}
-		}
-	})
-
-	// Cloned nodes are marked as new by default.
-	// After expanding mark as old so next operations doesn't ignore them
-	xnode.Walk(func(n *xmlNode) {
-		n.isNew = false
-	})
+	// // Cloned nodes are marked as new by default.
+	// // After expanding mark as old so next operations doesn't ignore them
+	// xnode.Walk(func(n *xmlNode) {
+	// 	n.isNew = false
+	// })
 }
 
 // Replace single params by type

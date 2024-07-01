@@ -288,3 +288,17 @@ func (p *Param) String() string {
 	s += fmt.Sprintf("\tTrigger[%s]", p.Trigger)
 	return s
 }
+
+func (p *Param) ParentIsSlice() bool {
+	if p == nil {
+		return false
+	}
+	parent := p.parent
+	for parent != nil {
+		if parent.Type == SliceParam {
+			return true
+		}
+		parent = parent.parent
+	}
+	return false
+}

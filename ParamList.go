@@ -5,6 +5,7 @@ import (
 	"log"
 	"reflect"
 	"regexp"
+	"strings"
 )
 
 // ParamList ..
@@ -243,4 +244,50 @@ func (params ParamList) Walk(fn func(*Param)) {
 		p.Level = 1
 		p.Walk(fn, p.Level+1)
 	}
+}
+
+func (params ParamList) WalkWithEnd(fn func(*Param) bool) {
+	for _, p := range params {
+		if fn(p) {
+			continue
+		}
+		p.Params.WalkWithEnd(fn)
+	}
+}
+
+func (p ParamList) GetMainSliceParam() ParamList {
+	var ret ParamList
+	p.WalkWithEnd(func(subParam *Param) bool {
+		if subParam.Type == SliceParam {
+			ret = append(ret, subParam)
+			return true
+		}
+		return false
+	})
+	return ret
+}
+
+func (p ParamList) FindAllByCompactKey(depth int, key []string, params *[]*Param) {
+	if depth > len(key) {
+		return
+	}
+	currLev := strings.Join(key[:depth], ".")
+	for _, param := range p {
+		if param.Type == StructParam {
+			param.Params.FindAllByCompactKey(depth, key, params)
+		} else {
+			if param.CompactKey == currLev {
+				if param.Type == SliceParam {
+					param.Params.FindAllByCompactKey(depth, key, params)
+					continue
+				}
+				if depth == len(key) {
+					*params = append(*params, param)
+				} else {
+					param.Params.FindAllByCompactKey(depth+1, key, params)
+				}
+			}
+		}
+	}
+
 }

@@ -129,27 +129,33 @@ func (t Template) GetContentPrefixList(content []byte) []string {
 	var record strings.Builder
 	start := false
 	length := len(content)
-	for i, v := range content {
-		if i == 0 {
-			continue
-		}
-
-		if v == '{' && content[i-1] == '{' {
+	if length == 0 {
+		return nil
+	}
+	for i := 1; i < length; i++ {
+		if content[i] == '{' && content[i-1] == '{' {
 			start = true
 			continue
 		}
 		if start {
-			if v == ' ' || (v == '}' && length-1 > i && content[i+1] == '}') {
-				ret = append(ret, record.String())
+			if content[i] == ' ' {
+				if record.Len() > 0 {
+					ret = append(ret, record.String())
+				}
 				record.Reset()
 				start = false
-			}
-			if v == '.' {
-				ret = append(ret, record.String())
-				record.Reset()
 				continue
 			}
-			record.WriteByte(v)
+			if content[i] == '}' && length-1 > i && content[i+1] == '}' {
+				if record.Len() > 0 {
+					ret = append(ret, record.String())
+				}
+				record.Reset()
+				i++
+				start = false
+				continue
+			}
+			record.WriteByte(content[i])
 		}
 	}
 	return ret
