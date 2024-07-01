@@ -3,7 +3,9 @@ package docxplate
 import (
 	"bytes"
 	"encoding/xml"
+	"fmt"
 	"strings"
+	"sync"
 )
 
 // Collect and trigger placeholders with trigger but unset in `t.params`
@@ -44,11 +46,8 @@ func (t *Template) triggerMissingParams(xnode *xmlNode) {
 
 // Expand complex placeholders
 func (t *Template) expandPlaceholders(xnode *xmlNode) {
-	paramNameMap := map[string]*Param{}
-	for _, p := range t.params.GetMainSliceParam() {
-		paramNameMap[p.CompactKey] = p
-	}
 	xnode.WalkWithEnd(func(nrow *xmlNode) bool {
+		var once sync.Once
 		if nrow.isNew {
 			return false
 		}
@@ -74,11 +73,14 @@ func (t *Template) expandPlaceholders(xnode *xmlNode) {
 
 			keySlice := strings.Split(rowParam.AbsoluteKey, ".")
 			var paramData []*Param
-			t.params.FindAllByCompactKey(1, keySlice, &paramData)
+			t.params.FindAllByKey(1, keySlice, &paramData)
 			if len(paramData) == 0 {
 				return true
 			}
 			placeholders := make([]string, len(paramData))
+			if rowParam.AbsoluteKey == "ImageLocal" {
+				fmt.Print("!\n")
+			}
 			for index, param := range paramData {
 				placeholders[index] = "{{" + param.AbsoluteKey + trigger + "}}"
 			}
@@ -102,16 +104,15 @@ func (t *Template) expandPlaceholders(xnode *xmlNode) {
 					n.Content = bytes.ReplaceAll(n.Content, []byte(oldPlaceholder), []byte(strings.Join(newPlaceholder.Placeholders, newPlaceholder.Separator)))
 				})
 			case rowPlaceholder:
-				defer func() {
+				defer once.Do(func() {
 					nrow.delete()
-				}()
+				})
 				length := len(newPlaceholder.Placeholders)
 				for i := length - 1; i >= 0; i-- {
-					arrIndex := (length - 1) - i
-					if nnews[arrIndex] == nil {
-						nnews[arrIndex] = nrow.cloneAndAppend()
+					if nnews[i] == nil {
+						nnews[i] = nrow.cloneAndAppend()
 					}
-					nnews[arrIndex].Walk(func(n *xmlNode) {
+					nnews[i].Walk(func(n *xmlNode) {
 						if !inSlice(n.XMLName.Local, []string{"w-t"}) || len(n.Content) == 0 {
 							return
 						}

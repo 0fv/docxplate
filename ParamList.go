@@ -267,24 +267,24 @@ func (p ParamList) GetMainSliceParam() ParamList {
 	return ret
 }
 
-func (p ParamList) FindAllByCompactKey(depth int, key []string, params *[]*Param) {
+func (p ParamList) FindAllByKey(depth int, key []string, params *[]*Param) {
 	if depth > len(key) {
 		return
 	}
 	currLev := strings.Join(key[:depth], ".")
 	for _, param := range p {
 		if param.Type == StructParam {
-			param.Params.FindAllByCompactKey(depth, key, params)
+			param.Params.FindAllByKey(depth+1, key, params)
 		} else {
-			if param.CompactKey == currLev {
+			if param.CompactKey == currLev || param.AbsoluteKey == currLev{
 				if param.Type == SliceParam {
-					param.Params.FindAllByCompactKey(depth, key, params)
+					param.Params.FindAllByKey(depth, key, params)
 					continue
 				}
 				if depth == len(key) {
 					*params = append(*params, param)
 				} else {
-					param.Params.FindAllByCompactKey(depth+1, key, params)
+					param.Params.FindAllByKey(depth+1, key, params)
 				}
 			}
 		}

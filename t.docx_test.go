@@ -132,7 +132,7 @@ func TestPlaceholders(t *testing.T) {
 		// "tables.docx",
 		// "lists.docx",
 		// "header-footer.docx",
-		// "user.template-no-images.docx",
+		"user.template-no-images.docx",
 		"user.template-with-images.docx",
 	}
 
@@ -140,7 +140,7 @@ func TestPlaceholders(t *testing.T) {
 
 		inputs := []string{
 			"struct",
-			// "json",
+			"json",
 		}
 
 		// Test param setup byu different input types

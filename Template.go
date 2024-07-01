@@ -174,12 +174,12 @@ func (t *Template) Params(v any) {
 			t.expandPlaceholders(xnode)
 
 			// Replace params
-			// t.replaceSingleParams(xnode, false)
+			t.replaceSingleParams(xnode, false)
 
 			// Collect placeholders with trigger but unset in `t.params`
 			// Placeholders with trigger `:empty` must be triggered
 			// otherwise they are left
-			// t.triggerMissingParams(xnode)
+			t.triggerMissingParams(xnode)
 
 			// After all done with placeholders, modify contents
 			// - new lines to docx new lines
